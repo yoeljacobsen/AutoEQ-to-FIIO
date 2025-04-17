@@ -16,7 +16,7 @@ This allows you to easily apply AutoEq's headphone correction profiles to your F
 * **Index Caching:** Caches the downloaded headphone index locally (`~/.autoeq_fiio_converter_cache/`) using ETags to speed up subsequent runs by avoiding redundant downloads.
 * **Interactive:** Guides the user through searching, selecting a profile, and saving the output file.
 * **Optional Preamp Gain**: Includes a flag to disable using the AutoEq preamp value, setting FiiO Master Gain to 0 instead.
-* 
+
 ## Requirements
 
 * Python 3.x

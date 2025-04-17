@@ -15,6 +15,7 @@ This allows you to easily apply AutoEq's headphone correction profiles to your F
 * **Configurable DSP Model:** Allows specifying the target FiiO device model name in the output XML via a command-line flag (defaults to "FIIO KA17").
 * **Index Caching:** Caches the downloaded headphone index locally (`~/.autoeq_fiio_converter_cache/`) using ETags to speed up subsequent runs by avoiding redundant downloads.
 * **Interactive:** Guides the user through searching, selecting a profile, and saving the output file.
+* **Optional Preamp Gain**: Includes a flag to disable using the AutoEq preamp value, setting FiiO Master Gain to 0 instead.
 
 ## Requirements
 
@@ -39,8 +40,10 @@ python autoeq_to_fiio.py [options]
 ### Options:
 ```bash
 -m <model_name>, --dsp-model <model_name>: Specify the target FiiO DSP model name to be included in the XML file. If omitted, it defaults to "FIIO KA17".
+--no-preamp-gain: Set Master Gain in FiiO XML to 0 instead of using the AutoEq preamp value (which is the default behavior).
 ```
-## Examples:
+
+### Examples:
 Convert using the default DSP model ("FIIO KA17"):
 ```bash
 python autoeq_to_fiio.py
@@ -53,6 +56,11 @@ python autoeq_to_fiio.py --dsp-model "FIIO BTR17"
 or
 ```bash
 python autoeq_to_fiio.py -m "FIIO BTR17"
+```
+
+Convert for BTR17, but set Master Gain to 0:
+```bash
+python autoeq_to_fiio.py --dsp-model "FIIO BTR17" --no-preamp-gain
 ```
 
 ## Interactive Prompts:
@@ -78,4 +86,4 @@ On subsequent runs, it first checks if the cached index is still up-to-date usin
 This script is provided as-is. You can consider licensing it under the MIT License if you distribute it.
 
 ## Acknowledgements
-This script relies heavily on the data provided by the excellent
+This script relies heavily on the data provided by the excellent [AutoEq project](https://github.com/jaakkopasanen/AutoEq) created by Jaakko Pasanen.

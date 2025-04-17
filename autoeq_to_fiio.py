@@ -50,7 +50,7 @@ TEXT_FILTER_REGEX = re.compile(
 
 def fetch_index():
     """Fetches the AutoEq index file from GitHub, using local cache if possible."""
-    # (No changes from v5)
+    # (No changes from v6)
     print("Checking for cached headphone index...")
     cached_etag = None
     headers = {}
@@ -65,11 +65,9 @@ def fetch_index():
                     cached_etag = f.read().strip()
                 if cached_etag:
                     headers['If-None-Match'] = cached_etag
-                    # print(f"Found cached ETag: {cached_etag}") # Less verbose
         except IOError as e:
             print(f"Warning: Could not read ETag cache file {ETAG_CACHE_FILE}: {e}")
             cached_etag = None
-    # print(f"Fetching headphone index from {INDEX_URL}...") # Less verbose
     try:
         response = requests.get(INDEX_URL, headers=headers, timeout=30)
         if response.status_code == 304:
@@ -77,7 +75,6 @@ def fetch_index():
             try:
                 with open(INDEX_CACHE_FILE, 'r', encoding='utf-8') as f:
                     index_content = f.read()
-                # print("Index loaded successfully from cache.") # Less verbose
                 return index_content
             except IOError as e:
                 print(f"Error: Could not read cached index file {INDEX_CACHE_FILE}: {e}")
@@ -92,11 +89,9 @@ def fetch_index():
             try:
                 with open(INDEX_CACHE_FILE, 'w', encoding='utf-8') as f:
                     f.write(index_content)
-                # print(f"Saved index content to cache: {INDEX_CACHE_FILE}") # Less verbose
                 if new_etag:
                     with open(ETAG_CACHE_FILE, 'w', encoding='utf-8') as f:
                         f.write(new_etag)
-                    # print(f"Saved new ETag to cache: {ETAG_CACHE_FILE}") # Less verbose
                 elif os.path.exists(ETAG_CACHE_FILE):
                      os.remove(ETAG_CACHE_FILE)
             except IOError as e:
@@ -121,10 +116,9 @@ def fetch_index():
 
 def parse_index(index_content):
     """Parses the Markdown index file to extract headphone names and paths."""
-    # (No changes from v5)
+    # (No changes from v6)
     headphones = {}
     pattern = re.compile(r"\[([^\]]+)\]\(([^)]+)\)")
-    # print("Parsing index...") # Less verbose
     lines = index_content.splitlines()
     count = 0
     for line in lines:
@@ -141,7 +135,7 @@ def parse_index(index_content):
 
 def search_headphones(headphones, search_term):
     """Filters the headphone list based on a search term."""
-    # (No changes from v5)
+    # (No changes from v6)
     matches = {
         name: path
         for name, path in headphones.items()
@@ -151,7 +145,7 @@ def search_headphones(headphones, search_term):
 
 def select_headphone(matches):
     """Prompts the user to select a headphone from the matches."""
-    # (No changes from v5)
+    # (No changes from v6)
     if not matches:
         print("No matches found.")
         return None, None
@@ -178,7 +172,7 @@ def select_headphone(matches):
 
 def fetch_parametric_eq_data(headphone_path, selected_name):
     """Fetches the Parametric EQ file for the selected headphone."""
-    # (No changes from v5)
+    # (No changes from v6)
     filename_txt = PARAMETRIC_EQ_FILENAME_TEMPLATE_TXT.format(selected_name)
     filename_csv = PARAMETRIC_EQ_FILENAME_CSV
     encoded_filename_txt = urllib.parse.quote(filename_txt)
@@ -192,7 +186,6 @@ def fetch_parametric_eq_data(headphone_path, selected_name):
         return response.text
     except requests.exceptions.RequestException as e:
         if isinstance(e, requests.exceptions.HTTPError) and e.response.status_code == 404:
-            # print(f"Info: '{filename_txt}' not found (404).") # Less verbose
             print(f"Attempting fallback fetch from: {url_csv}")
             try:
                 response = requests.get(url_csv, timeout=30)
@@ -210,9 +203,8 @@ def fetch_parametric_eq_data(headphone_path, selected_name):
 
 def parse_eq_data(eq_content):
     """Parses the EQ content (detecting format) into a list of EQ band dictionaries."""
-    # (No changes from v5)
+    # (No changes from v6)
     if not eq_content: return None, None
-    # print("Parsing EQ data...") # Less verbose
     eq_bands = []
     preamp = 0.0
     lines = eq_content.strip().splitlines()
@@ -231,7 +223,6 @@ def parse_eq_data(eq_content):
 
     is_text_format = any(TEXT_FILTER_REGEX.search(line) for line in lines)
     if is_text_format:
-        # print("Detected Text Filter format.") # Less verbose
         for i, line in enumerate(lines):
             match = TEXT_FILTER_REGEX.search(line)
             if match:
@@ -260,14 +251,12 @@ def parse_eq_data(eq_content):
                 except IndexError:
                      print(f"Warning: Skipping band on line {i+1} due to parsing error (IndexError) in line '{line.strip()}'")
     else:
-        # print("Assuming CSV format.") # Less verbose
         csvfile = io.StringIO(eq_content)
         try:
             try:
                 dialect = csv.Sniffer().sniff(csvfile.read(2048))
                 csvfile.seek(0)
             except csv.Error:
-                # print("Warning: CSV dialect sniffing failed. Assuming standard comma delimiter.") # Less verbose
                 dialect = 'excel'
                 csvfile.seek(0)
             reader = csv.reader(csvfile, dialect)
@@ -277,10 +266,8 @@ def parse_eq_data(eq_content):
                 is_header = all(h.strip().lower() in [eh.strip().lower() for eh in header] for h in expected_headers) or \
                             any(col.isalpha() for col in header[:4])
                 if not is_header:
-                    # print("Warning: First row doesn't look like a standard header. Attempting to parse from start.") # Less verbose
                     csvfile.seek(0)
                     reader = csv.reader(csvfile, dialect)
-                # else: print(f"Detected header: {header}") # Less verbose
             except StopIteration:
                 print("Error: EQ file (CSV) seems empty.")
                 return None, None
@@ -294,7 +281,6 @@ def parse_eq_data(eq_content):
                     fiio_type = FILTER_TYPE_MAP.get(filter_type_name)
                     if fiio_type is None:
                         if filter_type_name.replace('.', '', 1).isdigit() and len(row) >= 3:
-                             # print(f"Warning: Assuming 'Peaking' filter for row {i+1} starting with numeric value.") # Less verbose
                              fiio_type = FILTER_TYPE_MAP["Peaking"]
                              freq_str = row[0].strip()
                              q_str = row[1].strip()
@@ -322,20 +308,24 @@ def parse_eq_data(eq_content):
     if not eq_bands:
         print("Error: No valid EQ bands found in the data after parsing.")
         return None, None
-    # print(f"Successfully parsed {len(eq_bands)} EQ bands.") # Less verbose
     return eq_bands, preamp
 
 
 # --- MODIFIED create_fiio_xml ---
-def create_fiio_xml(eq_bands, style_name, preamp_value, dsp_model_name): # Added dsp_model_name argument
+def create_fiio_xml(eq_bands, style_name, preamp_value, dsp_model_name, use_preamp_gain): # Added use_preamp_gain argument
     """Creates the FiiO DSP XML structure as a string, using the provided preamp and model name."""
-    print(f"Generating FiiO XML for model '{dsp_model_name}' with MasterGain = {preamp_value}...")
-    # --- Use the passed dsp_model_name for the model attribute ---
-    root = ET.Element("FiiO_DSP", model=dsp_model_name, version="0.0.1") # MODIFIED: Use dsp_model_name here
+    # Determine the master gain value based on the flag
+    master_gain_value = str(preamp_value) if use_preamp_gain else "0"
+
+    print(f"Generating FiiO XML for model '{dsp_model_name}' with MasterGain = {master_gain_value}...")
+    root = ET.Element("FiiO_DSP", model=dsp_model_name, version="0.0.1")
     module = ET.SubElement(root, "module", name="EQ")
     eq_group = ET.SubElement(module, "eqGroup")
+
+    # --- Use the determined master gain value ---
     master_gain = ET.SubElement(eq_group, "param", name="masterGain")
-    master_gain.text = str(preamp_value)
+    master_gain.text = master_gain_value # MODIFIED: Use determined value
+
     eq_list = ET.SubElement(eq_group, "eqList")
     max_bands = 10
     if len(eq_bands) > max_bands:
@@ -353,12 +343,11 @@ def create_fiio_xml(eq_bands, style_name, preamp_value, dsp_model_name): # Added
     rough_string = ET.tostring(root, 'utf-8')
     reparsed = minidom.parseString(rough_string)
     pretty_xml = reparsed.toprettyxml(indent="  ", encoding="UTF-8").decode('utf-8')
-    # print("XML generated successfully.") # Less verbose
     return pretty_xml
 
 def save_xml(xml_content, default_filename="output.xml"):
     """Prompts the user for a filename and saves the XML content."""
-    # (No changes from v5)
+    # (No changes from v6)
     while True:
         try:
             filename = input(f"Enter filename to save XML (default: {default_filename}): ")
@@ -387,11 +376,21 @@ if __name__ == "__main__":
         default=DEFAULT_DSP_MODEL,
         help=f"Target DSP model name for the XML output (default: '{DEFAULT_DSP_MODEL}')"
     )
+    # --- Added flag for preamp gain ---
+    parser.add_argument(
+        "--no-preamp-gain",
+        action="store_false", # Default is True if flag is NOT present
+        dest="use_preamp_gain", # Store value in args.use_preamp_gain
+        help="Set Master Gain in FiiO XML to 0 instead of using the AutoEq preamp value."
+    )
+    parser.set_defaults(use_preamp_gain=True) # Explicitly set default
+    # --- Parse arguments ---
     args = parser.parse_args()
-    # --- Use the parsed DSP model ---
     target_dsp_model = args.dsp_model
+    use_preamp = args.use_preamp_gain # Get the boolean value
 
-    print(f"--- AutoEq to FiiO Control Converter (v6 - Target DSP: {target_dsp_model}) ---")
+    print(f"--- AutoEq to FiiO Control Converter (v7 - Target DSP: {target_dsp_model}) ---")
+    print(f"Using AutoEq preamp for Master Gain: {'Yes' if use_preamp else 'No'}") # Inform user
 
     index_content = fetch_index()
     if not index_content:
@@ -427,10 +426,10 @@ if __name__ == "__main__":
     safe_style_name = re.sub(r'[<>:"/\\|?*]', '_', selected_name)
     safe_filename_base = re.sub(r'[<>:"/\\|?*]', '_', selected_name).replace(' ', '_')
 
-    # --- Pass target_dsp_model to create_fiio_xml ---
-    fiio_xml = create_fiio_xml(eq_bands, safe_style_name, preamp_value, target_dsp_model) # MODIFIED
+    # --- Pass use_preamp flag to create_fiio_xml ---
+    fiio_xml = create_fiio_xml(eq_bands, safe_style_name, preamp_value, target_dsp_model, use_preamp) # MODIFIED
 
-    save_xml(fiio_xml, default_filename=f"{safe_filename_base}_{target_dsp_model.replace(' ','_')}.xml") # Include model in default filename
+    save_xml(fiio_xml, default_filename=f"{safe_filename_base}_{target_dsp_model.replace(' ','_')}.xml")
 
     print("--- Conversion Complete ---")
 

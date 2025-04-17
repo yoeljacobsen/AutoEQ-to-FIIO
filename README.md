@@ -86,4 +86,4 @@ On subsequent runs, it first checks if the cached index is still up-to-date usin
 This script is provided as-is. You can consider licensing it under the MIT License if you distribute it.
 
 ## Acknowledgements
-This script relies heavily on the data provided by the excellent
+This script relies heavily on the data provided by the excellent [AutoEq project](https://github.com/jaakkopasanen/AutoEq) created by Jaakko Pasanen.

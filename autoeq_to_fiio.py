@@ -5,7 +5,7 @@ from xml.dom import minidom
 import io
 import re
 import os
-import urllib.parse # Needed for robust URL quoting
+import urllib.parse # Needed for robust URL quoting/unquoting
 import sys
 import argparse
 
@@ -35,7 +35,7 @@ TEXT_FILTER_REGEX = re.compile(
 
 def fetch_index():
     """Fetches the AutoEq index file from GitHub, using local cache if possible."""
-    # (No changes from v7)
+    # (No changes from v12)
     print("Checking for cached headphone index...")
     cached_etag = None
     headers = {}
@@ -99,30 +99,41 @@ def fetch_index():
              return None
 
 
+# --- MODIFIED parse_index ---
 def parse_index(index_content):
-    """Parses the Markdown index file to extract headphone names and paths."""
-    # (No changes from v7)
+    """Parses the Markdown index file to extract headphone names and RAW (decoded) paths."""
     headphones = {}
-    pattern = re.compile(r"\[([^\]]+)\]\(([^)]+)\)")
+    # --- Corrected Regex ---
+    # Use (.*) to greedily capture everything between the link parentheses (...)
+    pattern = re.compile(r"\[([^\]]+)\]\((.*)\)") # MODIFIED Regex
+    print("Parsing index...")
     lines = index_content.splitlines()
     count = 0
     for line in lines:
+        # Look for lines starting with '*' or '-' indicating list items
         if line.strip().startswith(("*", "-")):
             match = pattern.search(line)
             if match:
                 name = match.group(1).strip()
-                # Path from MD link might already have some encoding (%20)
-                # Keep it as is for now, quoting will handle remaining chars
-                relative_path = match.group(2).strip().lstrip('./').lstrip('/').rstrip('/') + '/'
-                if relative_path:
-                    headphones[name] = relative_path
+                # Path from MD link target (group 2) - now captures full path
+                raw_link_target = match.group(2).strip()
+                # Decode the path completely first
+                unquoted_path = urllib.parse.unquote(raw_link_target)
+
+                # Cleaning Logic (same as v12)
+                cleaned_path_intermediate = unquoted_path.strip().lstrip('./').lstrip('/')
+                cleaned_path = cleaned_path_intermediate.rstrip('/') + '/'
+
+                # Store this cleaned, RAW path
+                if cleaned_path != '/':
+                    headphones[name] = cleaned_path
                     count += 1
     print(f"Found {count} headphone profiles.")
     return headphones
 
 def search_headphones(headphones, search_term):
     """Filters the headphone list based on a search term."""
-    # (No changes from v7)
+    # (No changes from v12)
     matches = {
         name: path
         for name, path in headphones.items()
@@ -132,7 +143,7 @@ def search_headphones(headphones, search_term):
 
 def select_headphone(matches):
     """Prompts the user to select a headphone from the matches."""
-    # (No changes from v7)
+    # (No changes from v12)
     if not matches:
         print("No matches found.")
         return None, None
@@ -156,29 +167,20 @@ def select_headphone(matches):
             print("\nSelection cancelled.")
             return None, None
 
-# --- MODIFIED fetch_parametric_eq_data ---
-def fetch_parametric_eq_data(headphone_path, selected_name):
-    """Fetches the Parametric EQ file for the selected headphone with robust URL encoding."""
+# --- fetch_parametric_eq_data ---
+def fetch_parametric_eq_data(raw_headphone_path, selected_name):
+    """Fetches the Parametric EQ file using the RAW path and applying consistent encoding."""
+    # (No changes from v12 - relies on correct raw_headphone_path from parse_index)
     filename_txt = PARAMETRIC_EQ_FILENAME_TEMPLATE_TXT.format(selected_name)
     filename_csv = PARAMETRIC_EQ_FILENAME_CSV
 
-    # --- Apply URL quoting to path and filename components separately ---
-    # Quote the path, keeping '/' safe. Handles spaces (%20) and parentheses etc.
-    # Note: `quote` is idempotent for already encoded %xx sequences.
-    quoted_headphone_path = urllib.parse.quote(headphone_path, safe='/')
-
-    # Quote the filename completely (including spaces, parentheses etc.)
+    quoted_headphone_path = urllib.parse.quote(raw_headphone_path, safe='/')
     quoted_filename_txt = urllib.parse.quote(filename_txt, safe='')
-    # CSV filename is simple, likely doesn't need quoting, but do it for consistency
     quoted_filename_csv = urllib.parse.quote(filename_csv, safe='')
 
-    # Construct URLs using the quoted components
-    # BASE_RAW_URL ends with '/', quoted_headphone_path ends with '/' if original did
-    # Ensure no double slashes if quoted_headphone_path starts with / (shouldn't happen)
     url_txt = f"{BASE_RAW_URL.rstrip('/')}/{quoted_headphone_path.strip('/')}/{quoted_filename_txt}"
     url_csv = f"{BASE_RAW_URL.rstrip('/')}/{quoted_headphone_path.strip('/')}/{quoted_filename_csv}"
 
-    # --- Try fetching the .txt file first ---
     print(f"Attempting to fetch EQ data from: {url_txt}")
     try:
         response = requests.get(url_txt, timeout=30)
@@ -188,7 +190,6 @@ def fetch_parametric_eq_data(headphone_path, selected_name):
     except requests.exceptions.RequestException as e:
         if isinstance(e, requests.exceptions.HTTPError) and e.response.status_code == 404:
             print(f"Info: '{filename_txt}' not found (404).")
-            # --- Fallback: Try fetching the .csv file ---
             print(f"Attempting fallback fetch from: {url_csv}")
             try:
                 response = requests.get(url_csv, timeout=30)
@@ -201,13 +202,13 @@ def fetch_parametric_eq_data(headphone_path, selected_name):
                      print(f"Info: Fallback '{filename_csv}' also not found (404).")
                 return None
         else:
-            # Handle other request errors for the .txt file
             print(f"Error fetching EQ data (.txt): {e}")
             return None
 
+
 def parse_eq_data(eq_content):
     """Parses the EQ content (detecting format) into a list of EQ band dictionaries."""
-    # (No changes from v7)
+    # (No changes from v12)
     if not eq_content: return None, None
     eq_bands = []
     preamp = 0.0
@@ -317,7 +318,7 @@ def parse_eq_data(eq_content):
 
 def create_fiio_xml(eq_bands, style_name, preamp_value, dsp_model_name, use_preamp_gain):
     """Creates the FiiO DSP XML structure as a string, using the provided preamp and model name."""
-    # (No changes from v7)
+    # (No changes from v12)
     master_gain_value = str(preamp_value) if use_preamp_gain else "0"
     print(f"Generating FiiO XML for model '{dsp_model_name}' with MasterGain = {master_gain_value}...")
     root = ET.Element("FiiO_DSP", model=dsp_model_name, version="0.0.1")
@@ -346,7 +347,7 @@ def create_fiio_xml(eq_bands, style_name, preamp_value, dsp_model_name, use_prea
 
 def save_xml(xml_content, default_filename="output.xml"):
     """Prompts the user for a filename and saves the XML content."""
-    # (No changes from v7)
+    # (No changes from v12)
     while True:
         try:
             filename = input(f"Enter filename to save XML (default: {default_filename}): ")
@@ -368,7 +369,7 @@ def save_xml(xml_content, default_filename="output.xml"):
 
 # --- Main Execution ---
 if __name__ == "__main__":
-    # (No changes from v7)
+    # (No changes from v12)
     parser = argparse.ArgumentParser(description="Convert AutoEq profiles to FiiO Control XML format.")
     parser.add_argument(
         "-m", "--dsp-model",
@@ -386,7 +387,7 @@ if __name__ == "__main__":
     target_dsp_model = args.dsp_model
     use_preamp = args.use_preamp_gain
 
-    print(f"--- AutoEq to FiiO Control Converter (v8 - Target DSP: {target_dsp_model}) ---")
+    print(f"--- AutoEq to FiiO Control Converter (v13 - Target DSP: {target_dsp_model}) ---")
     print(f"Using AutoEq preamp for Master Gain: {'Yes' if use_preamp else 'No'}")
 
     index_content = fetch_index()
@@ -394,7 +395,7 @@ if __name__ == "__main__":
         print("Failed to retrieve headphone index. Exiting.")
         sys.exit(1)
 
-    all_headphones = parse_index(index_content)
+    all_headphones = parse_index(index_content) # Uses updated regex
     if not all_headphones:
         print("Could not parse any headphones from the index. Exiting.")
         sys.exit(1)
@@ -403,14 +404,14 @@ if __name__ == "__main__":
         try:
             search_term = input("Enter search term for headphones (or leave blank to list all): ")
             matches = search_headphones(all_headphones, search_term or "")
-            selected_name, selected_path = select_headphone(matches)
+            selected_name, selected_path = select_headphone(matches) # selected_path is RAW
             if selected_path: break
             elif not matches and search_term: print(f"No results for '{search_term}'. Try again.")
             elif not matches and not search_term: print("No headphones found. Try a search term.")
             elif selected_name is None and selected_path is None: sys.exit(0)
         except EOFError: print("\nExiting."); sys.exit(0)
 
-    eq_file_content = fetch_parametric_eq_data(selected_path, selected_name) # Uses updated function
+    eq_file_content = fetch_parametric_eq_data(selected_path, selected_name)
     if not eq_file_content:
         print("Could not retrieve EQ data for the selected profile. Exiting.")
         sys.exit(1)

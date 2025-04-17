@@ -1,4 +1,4 @@
-# AutoEq to FiiO Control Converter
+# AutoEq to FIIO Control Converter
 
 This Python script fetches parametric equalizer (PEQ) profiles from the [AutoEq project](https://github.com/jaakkopasanen/AutoEq) on GitHub and converts them into the XML format used by the FiiO Control app and potentially other FiiO devices.
 
